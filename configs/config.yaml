@@ -1,0 +1,6 @@
+axiom: 'X'
+rules:
+  X: 'F-[[X]+X]+F[+FX]-X'
+  F: 'FF'
+angle: 22.5
+iterations: 5
