@@ -11,7 +11,7 @@ class smart_dict(dict):
         return key
 
 
-def cylinder_between(x1, y1, z1, x2, y2, z2, rot, r=0.03, verts=8):
+def cylinder_between(x1, y1, z1, x2, y2, z2, rot, r=0.03, verts=6):
     dx = x2 - x1
     dy = y2 - y1
     dz = z2 - z1

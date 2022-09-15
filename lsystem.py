@@ -2,24 +2,34 @@ from myutils import *
 import math
 import numpy as np
 from copy import deepcopy
+from scipy.spatial.transform import Rotation as R
 
 
 class Lsystem:
     def __init__(self, starting_location=None, starting_rotation=None, step_size=0.1, angle=90):
-        self.location = [0, 0, 0]
-        self.rotation = [0, 0, 0]
+        location = [0, 0, 0]
+        rotation = [0, 0, 0]
         if starting_location is not None:
-            self.location = starting_location
+            location = starting_location
         if starting_rotation is not None:
-            self.rotation = starting_rotation
+            rotation = starting_rotation
+
+        self.transform = np.eye(4)
+        rotation_matrix = R.from_euler('xyz', rotation, degrees=True)
+        self.transform[:3, :3] = rotation_matrix.as_matrix()
+        self.transform[:3, -1] = location
 
         self.step_size = step_size
 
-        self.locations_done = {}
-        self.saved_location = []
-        self.saved_rotation = []
+        # TODO: add a way to check if segment there already
+        self.saved_transform = []
         self.first_obj = True
         self.angle = degrees_to_rads(angle)
+
+    def rotation_around(self, axis, angle):
+        m = np.eye(4)
+        m[:3, :3] = R.from_euler(axis, angle, degrees=False).as_matrix()
+        self.transform = np.matmul(self.transform, m)
 
     def interpret(self, symbol):
         match symbol:
@@ -36,39 +46,35 @@ class Lsystem:
             case ']':
                 self.handle_load()
 
-        # keep rotations between [-2*PI, 2*PI]
-        self.rotation[1] = abs(self.rotation[1]) % (2 * math.pi) * np.sign(self.rotation[1])
-
     def handle_F(self):
-        new_x = self.location[0] + math.sin(self.rotation[1]) * self.step_size
-        new_z = self.location[2] + math.cos(self.rotation[1]) * self.step_size
+        m = np.eye(4)
+        m[2, -1] = self.step_size
+        new_transform = np.matmul(self.transform, m)
 
-        if str([new_x, self.location[1], new_z]) not in self.locations_done:
-            cylinder_between(self.location[0], self.location[1], self.location[2], new_x, self.location[1], new_z,
-                             self.rotation)
+        rotation = R.from_matrix(self.transform[:3, :3]).as_euler('xyz', degrees=False)
+        old_location = self.transform[:3, -1]
+        new_location = new_transform[:3, -1]
+        cylinder_between(*old_location, *new_location, rotation)
 
-            if self.first_obj:
-                bpy.ops.object.editmode_toggle()
-                self.first_obj = False
+        if self.first_obj:
+            bpy.ops.object.editmode_toggle()
+            self.first_obj = False
 
-        self.location[0] = new_x
-        self.location[2] = new_z
-        self.locations_done[str(self.location)] = True
+        self.transform = new_transform
 
     def handle_f(self):
-        self.location[0] = self.location[0] + math.sin(self.rotation[1]) * self.step_size
-        self.location[2] = self.location[2] + math.cos(self.rotation[1]) * self.step_size
-        self.locations_done[str(self.location)] = True
+        m = np.eye(4)
+        m[2, -1] = self.step_size
+        self.transform = np.matmul(m, self.transform)
 
     def handle_plus(self):
-        self.rotation[1] += self.angle
+        self.rotation_around('y', self.angle)
 
     def handle_minus(self):
-        self.rotation[1] -= self.angle
+        self.rotation_around('y', -self.angle)
 
     def handle_save(self):
-        self.saved_location.append(deepcopy(self.location))
-        self.saved_rotation.append(deepcopy(self.rotation))
+        self.saved_transform.append(deepcopy(self.transform))
 
     def handle_load(self):
-        self.location, self.rotation = self.saved_location.pop(), self.saved_rotation.pop()
+        self.transform = self.saved_transform.pop()

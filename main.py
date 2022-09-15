@@ -33,7 +33,7 @@ for ix, c in tqdm(enumerate(result), total=len(result)):
     lsystem.interpret(c)
 
     if DEBUG:
-        print(ix, c, lsystem.location, lsystem.rotation)
+        print(ix, c, lsystem.transform)
 
 bpy.ops.object.editmode_toggle()
 bpy.ops.object.shade_smooth()
